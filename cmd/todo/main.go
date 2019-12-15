@@ -40,7 +40,25 @@ func add(text string) error {
 		Text: text,
 		Done: false,
 	}
-	fmt.Println(proto.MarshalTextString(task))
+	b, err := proto.Marshal(task)
+	if err != nil {
+		return fmt.Errorf("could not encode task: %v", err)
+	}
+
+	f, err := os.OpenFile(dbPath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		return fmt.Errorf("coudl not open %s: %v", dbPath, err)
+	}
+
+	_, err = f.Write(b)
+	if err != nil {
+		return fmt.Errorf("could not write task to file: %v", err)
+
+	}
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("Unable to close file: %s %v", dbPath, err)
+
+	}
 
 	return nil
 }
