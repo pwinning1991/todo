@@ -38,34 +38,34 @@ const (
 
 var endianness = binary.LittleEndian
 
-func add(text string) error {
+func (s taskServer) Add(ctx context.Context, text *todo.Text) (*todo.Task, error) {
 	task := &todo.Task{
-		Text: text,
+		Text: text.Text,
 		Done: false,
 	}
 
 	b, err := proto.Marshal(task)
 	if err != nil {
-		return fmt.Errorf("could not encode task: %v", err)
+		return nil, fmt.Errorf("could not encode task: %v", err)
 	}
 
 	f, err := os.OpenFile(dbPath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
-		return fmt.Errorf("could not open %s: %v", dbPath, err)
+		return nil, fmt.Errorf("could not open %s: %v", dbPath, err)
 	}
 
 	if err := binary.Write(f, endianness, length(len(b))); err != nil {
-		return fmt.Errorf("could not encode length of message: %v", err)
+		return nil, fmt.Errorf("could not encode length of message: %v", err)
 	}
 	_, err = f.Write(b)
 	if err != nil {
-		return fmt.Errorf("could not write task to file: %v", err)
+		return nil, fmt.Errorf("could not write task to file: %v", err)
 	}
 
 	if err := f.Close(); err != nil {
-		return fmt.Errorf("could not close file %s: %v", dbPath, err)
+		return nil, fmt.Errorf("could not close file %s: %v", dbPath, err)
 	}
-	return nil
+	return task, nil
 }
 
 func (s taskServer) List(ctx context.Context, void *todo.Void) (*todo.TaskList, error) {

@@ -4,12 +4,11 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/pwinning1991/todo"
+	grpc "google.golang.org/grpc"
 	"log"
 	"os"
 	"strings"
-
-	"github.com/pwinning1991/todo"
-	grpc "google.golang.org/grpc"
 )
 
 func main() {
@@ -29,7 +28,7 @@ func main() {
 	case "list":
 		err = list(context.Background(), client)
 	case "add":
-		err = add(strings.Join(flag.Args()[1:], " "))
+		err = add(context.Background(), client, strings.Join(flag.Args()[1:], " "))
 	default:
 		err = fmt.Errorf("unknown subcommand %s", cmd)
 	}
@@ -39,8 +38,14 @@ func main() {
 	}
 }
 
-func add(text string) error {
-	return fmt.Errorf("error")
+func add(ctx context.Context, client todo.TasksClient, text string) error {
+	_, err := client.Add(ctx, &todo.Text{Text: text})
+	if err != nil {
+		return fmt.Errorf("could not add task in the backend: %v", err)
+	}
+
+	fmt.Println("task added successfully")
+	return nil
 }
 
 func list(ctx context.Context, client todo.TasksClient) error {
