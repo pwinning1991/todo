@@ -2,36 +2,36 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
-	"flag"
 	"fmt"
+	"io/ioutil"
+	"log"
+	"net"
+	"os"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/pwinning1991/todo"
-	"io/ioutil"
-	"os"
-	"strings"
+	grpc "google.golang.org/grpc"
 )
 
-func main() {
-	flag.Parse()
-	if flag.NArg() < 1 {
-		fmt.Fprintln(os.Stderr, "missing subcommand: list or add")
-		os.Exit(1)
-	}
+type taskServer struct {
+}
 
-	var err error
-	switch cmd := flag.Arg(0); cmd {
-	case "list":
-		err = list()
-	case "add":
-		err = add(strings.Join(flag.Args()[1:], " "))
-	default:
-		err = fmt.Errorf("unknown subcommand %s", cmd)
-	}
+func (s taskServer) List(ctx context.Context, void *todo.Void) (*todo.TaskList, error) {
+	return nil, fmt.Errorf("Not implemneted")
+
+}
+
+func main() {
+	srv := grpc.NewServer()
+	var tasks taskServer
+	todo.RegisterTasksServer(srv, tasks)
+	l, err := net.Listen("tcp", ":8888")
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		log.Fatalf("could not listen to :8888: %v", err)
 	}
+	log.Fatal(srv.Serve(l))
 }
 
 type length int64
