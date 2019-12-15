@@ -1,15 +1,15 @@
 package main
 
 import (
-	"bytes"
-	"encoding/binary"
+	"context"
 	"flag"
 	"fmt"
-	"github.com/golang/protobuf/proto"
-	"github.com/pwinning1991/todo"
-	"io/ioutil"
+	"log"
 	"os"
 	"strings"
+
+	"github.com/pwinning1991/todo"
+	grpc "google.golang.org/grpc"
 )
 
 func main() {
@@ -19,10 +19,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	var err error
+	conn, err := grpc.Dial(":8888", grpc.WithInsecure())
+	if err != nil {
+		log.Fatalf("could not connect to backend: %v", err)
+	}
+	client := todo.NewTasksClient(conn)
+
 	switch cmd := flag.Arg(0); cmd {
 	case "list":
-		err = list()
+		err = list(context.Background(), client)
 	case "add":
 		err = add(strings.Join(flag.Args()[1:], " "))
 	default:
@@ -34,75 +39,23 @@ func main() {
 	}
 }
 
-type length int64
-
-const (
-	sizeOfLength = 8
-	dbPath       = "mydb.pb"
-)
-
-var endianness = binary.LittleEndian
-
 func add(text string) error {
-	task := &todo.Task{
-		Text: text,
-		Done: false,
-	}
-
-	b, err := proto.Marshal(task)
-	if err != nil {
-		return fmt.Errorf("could not encode task: %v", err)
-	}
-
-	f, err := os.OpenFile(dbPath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
-	if err != nil {
-		return fmt.Errorf("could not open %s: %v", dbPath, err)
-	}
-
-	if err := binary.Write(f, endianness, length(len(b))); err != nil {
-		return fmt.Errorf("could not encode length of message: %v", err)
-	}
-	_, err = f.Write(b)
-	if err != nil {
-		return fmt.Errorf("could not write task to file: %v", err)
-	}
-
-	if err := f.Close(); err != nil {
-		return fmt.Errorf("could not close file %s: %v", dbPath, err)
-	}
-	return nil
+	return fmt.Errorf("error")
 }
 
-func list() error {
-	b, err := ioutil.ReadFile(dbPath)
+func list(ctx context.Context, client todo.TasksClient) error {
+	l, err := client.List(ctx, &todo.Void{})
 	if err != nil {
-		return fmt.Errorf("could not read %s: %v", dbPath, err)
+		return fmt.Errorf("could not fetch tasks: %v", err)
 	}
 
-	for {
-		if len(b) == 0 {
-			return nil
-		} else if len(b) < sizeOfLength {
-			return fmt.Errorf("remaining odd %d bytes, what to do?", len(b))
-		}
-
-		var l length
-		if err := binary.Read(bytes.NewReader(b[:sizeOfLength]), endianness, &l); err != nil {
-			return fmt.Errorf("could not decode message length: %v", err)
-		}
-		b = b[sizeOfLength:]
-
-		var task todo.Task
-		if err := proto.Unmarshal(b[:l], &task); err != nil {
-			return fmt.Errorf("could not read task: %v", err)
-		}
-		b = b[l:]
-
-		if task.Done {
-			fmt.Printf("👍")
+	for _, t := range l.Tasks {
+		if t.Done {
+			fmt.Printf(("done"))
 		} else {
-			fmt.Printf("😱")
+			fmt.Printf("not done")
 		}
-		fmt.Printf(" %s\n", task.Text)
+		fmt.Printf(" %s\n", t.Text)
 	}
+	return nil
 }
