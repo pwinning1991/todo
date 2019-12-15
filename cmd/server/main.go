@@ -18,11 +18,6 @@ import (
 type taskServer struct {
 }
 
-func (s taskServer) List(ctx context.Context, void *todo.Void) (*todo.TaskList, error) {
-	return nil, fmt.Errorf("Not implemneted")
-
-}
-
 func main() {
 	srv := grpc.NewServer()
 	var tasks taskServer
@@ -73,30 +68,30 @@ func add(text string) error {
 	return nil
 }
 
-func list() error {
+func (s taskServer) List(ctx context.Context, void *todo.Void) (*todo.TaskList, error) {
 	b, err := ioutil.ReadFile(dbPath)
 	if err != nil {
-		return fmt.Errorf("could not read %s: %v", dbPath, err)
+		return nil, fmt.Errorf("could not read %s: %v", dbPath, err)
 	}
 
+	var tasks todo.TaskList
 	for {
 		if len(b) == 0 {
-			return nil
-		} else if len(b) < sizeOfLength {
-			return fmt.Errorf("remaining odd %d bytes, what to do?", len(b))
+			return &tasks, nil
 		}
 
 		var l length
 		if err := binary.Read(bytes.NewReader(b[:sizeOfLength]), endianness, &l); err != nil {
-			return fmt.Errorf("could not decode message length: %v", err)
+			return nil, fmt.Errorf("could not decode message length: %v", err)
 		}
 		b = b[sizeOfLength:]
 
 		var task todo.Task
 		if err := proto.Unmarshal(b[:l], &task); err != nil {
-			return fmt.Errorf("could not read task: %v", err)
+			return nil, fmt.Errorf("could not read task: %v", err)
 		}
 		b = b[l:]
+		tasks.Tasks = append(tasks.Tasks, &task)
 
 		if task.Done {
 			fmt.Printf("👍")
